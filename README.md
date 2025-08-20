@@ -8,7 +8,6 @@ This project shows how to build a **Java library** (`DummyEncryptor`) and call i
 
 Build:
 ```bash
-cd java-lib
 mvn clean package
 ```
 Produces `target/crypto-lib-1.0.0.jar`.
@@ -40,12 +39,6 @@ graalpy --jvm --polyglot -cp java-lib/target/crypto-lib-1.0.0.jar use_crypto.py
 
 ```bash
 node --jvm --polyglot -cp java-lib/target/crypto-lib-1.0.0.jar useCrypto.js
-```
-
-## 🦫 Go Example
-
-```bash
-go run main.go
 ```
 
 ---
