@@ -6,6 +6,7 @@ import com.work.graalvm.domain.BResponse;
 import com.work.graalvm.domain.BStatus;
 import com.work.graalvm.domain.BTransaction;
 import com.work.graalvm.utils.CryptoUtils;
+import com.work.graalvm.utils.LocalDateAdapterUtils;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.graalvm.nativeimage.IsolateThread;
 import org.graalvm.nativeimage.c.function.CEntryPoint;
@@ -36,10 +37,7 @@ public class BTransactionService {
             .registerTypeAdapter(BResponse.class, (InstanceCreator<BResponse>) type -> new BResponse())
 
             // LocalDate (serializer y deserializer)
-            .registerTypeAdapter(LocalDate.class,
-                    (JsonDeserializer<LocalDate>) (json, type, ctx) -> LocalDate.parse(json.getAsString()))
-            .registerTypeAdapter(LocalDate.class,
-                    (JsonSerializer<LocalDate>) (src, type, ctx) -> new JsonPrimitive(src.toString()))
+            .registerTypeAdapter(LocalDate.class, new LocalDateAdapterUtils())
 
             // Enum BStatus (serializer y deserializer)
             .registerTypeAdapter(BStatus.class,
