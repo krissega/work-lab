@@ -1,0 +1,13 @@
+{
+  "id": "1234567",
+  "description": "this is a transaction example",
+  "client": {
+    "name": "Jhon Doe",
+    "email": "jdoe.2025@example.com",
+    " phone": "123456789",
+    "address": "jd address example",
+    "birthday": "1990-01-08"
+  },
+  "status": "COMPLETED",
+  "creditCardNumber": "1234567890"
+}
