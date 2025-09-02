@@ -1,0 +1,21 @@
+[
+  {
+    "name": "com.work.graalvm.domain.BTransaction",
+    "allDeclaredFields": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.work.graalvm.domain.BClient",
+    "allDeclaredFields": true,
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "com.work.graalvm.domain.BResponse",
+    "allDeclaredFields": true,
+    "allDeclaredConstructors": true
+  },{
+  "name": "com.work.graalvm.domain.BStatus",
+  "allDeclaredFields": true,
+  "allDeclaredConstructors": true
+}
+]

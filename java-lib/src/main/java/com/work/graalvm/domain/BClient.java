@@ -1,14 +1,25 @@
 package com.work.graalvm.domain;
 
+import com.google.gson.annotations.SerializedName;
+
 import java.time.LocalDate;
 
 public class BClient {
+    @SerializedName("name")
     String name;
+    @SerializedName("email")
     String email;
+    @SerializedName("phone")
     String phone;
+    @SerializedName("address")
     String address;
+    @SerializedName("birthday")
     LocalDate birthday;
+    @SerializedName("age")
     int age;
+
+    public BClient() {
+    }
 
     public String getName() {
         return name;

@@ -1,9 +1,15 @@
 package com.work.graalvm.domain;
 
-public class BResponse {
+import com.google.gson.annotations.SerializedName;
 
+public class BResponse {
+    @SerializedName("securedTransaction")
     BTransaction securedTransaction;
+    @SerializedName("systemReport")
     String systemReport;
+
+    public BResponse() {
+    }
 
     public BTransaction getSecuredTransaction() {
         return securedTransaction;
