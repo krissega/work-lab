@@ -10,6 +10,10 @@ extern "C" {
 
 typedef char* (*getSecuredTransaction_fn_t)(graal_isolatethread_t*, char*);
 
+typedef char* (*secureAndWriteTransaction_fn_t)(graal_isolatethread_t*, char*, char*, char*);
+
+typedef char* (*decryptTransactionFile_fn_t)(graal_isolatethread_t*, char*, char*);
+
 #if defined(__cplusplus)
 }
 #endif

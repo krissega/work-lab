@@ -10,6 +10,10 @@ extern "C" {
 
 char* getSecuredTransaction(graal_isolatethread_t*, char*);
 
+char* secureAndWriteTransaction(graal_isolatethread_t*, char*, char*, char*);
+
+char* decryptTransactionFile(graal_isolatethread_t*, char*, char*);
+
 #if defined(__cplusplus)
 }
 #endif
