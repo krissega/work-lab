@@ -23,7 +23,7 @@ func main() {
 	encPath  := "C:/work-lab/out/tx.enc"
 
 	// Ensure output dir exists (like Python did)
-	_ = os.MkdirAll("C:/work-lab/out", 0o755)
+	_ = os.MkdirAll("C:/work-lab/out", 0o755)// 0o prefix for  octal base and 755 file permissions :)
 
 	// --- Step 1: create isolate/thread (required by @CEntryPoint) ---
 	var isolate *C.graal_isolate_t
