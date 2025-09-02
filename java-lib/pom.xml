@@ -13,6 +13,9 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <graalvm.version>23.1.2</graalvm.version>
     <gson.version>2.10.1</gson.version>
+    <bouncycastle.version>1.78.1</bouncycastle.version>
+    <junit.jupiter.version>5.10.2</junit.jupiter.version>
+
   </properties>
 
   <dependencies>
@@ -28,6 +31,19 @@
       <artifactId>gson</artifactId>
       <version>${gson.version}</version>
     </dependency>
+
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+      <version>${bouncycastle.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.jupiter.version}</version>
+    </dependency>
+
   </dependencies>
 
   <build>
@@ -48,8 +64,20 @@
           <imageName>BTransactionService</imageName>
           <buildArgs>
             <arg>--shared</arg> <!-- librería compartida -->
+
+            <!-- habilita todos los servicios de seguridad/JCE en la imagen -->
+            <arg>--enable-all-security-services</arg>
+
+            <!-- (opcional) si lo necesitas con BC -->
+            <!-- <arg>  -initialize-at-run-time=org.bouncycastle</arg> -->
           </buildArgs>
         </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.1.2</version>
       </plugin>
     </plugins>
   </build>
