@@ -64,12 +64,10 @@
           <imageName>BTransactionService</imageName>
           <buildArgs>
             <arg>--shared</arg> <!-- librería compartida -->
-
             <!-- habilita todos los servicios de seguridad/JCE en la imagen -->
             <arg>--enable-all-security-services</arg>
-
             <!-- (opcional) si lo necesitas con BC -->
-            <!-- <arg>  -initialize-at-run-time=org.bouncycastle</arg> -->
+            <arg>--initialize-at-run-time=org.bouncycastle</arg>
           </buildArgs>
         </configuration>
       </plugin>

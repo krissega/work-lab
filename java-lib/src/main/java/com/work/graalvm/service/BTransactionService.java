@@ -65,6 +65,7 @@ public class BTransactionService {
 
     @CEntryPoint(name = "getSecuredTransaction")
     public static CCharPointer getSecuredTransaction(IsolateThread thread, CCharPointer path) {
+        System.out.println("*********************** starting getSecuredTransaction   *************************** ");
         String jsonPath = CTypeConversion.toJavaString(path);
         BResponse response = new BResponse();
 
@@ -102,6 +103,7 @@ public class BTransactionService {
 
     @CEntryPoint(name = "secureAndWriteTransaction")
     public static CCharPointer secureAndWriteTransaction(IsolateThread thread, CCharPointer jsonPathPtr, CCharPointer keyPathPtr, CCharPointer outPathPtr) {
+        System.out.println("*********************** starting secureAndWriteTransaction   *************************** ");
         String jsonPath = CTypeConversion.toJavaString(jsonPathPtr);
         String keyPath  = CTypeConversion.toJavaString(keyPathPtr);
         String outPath  = CTypeConversion.toJavaString(outPathPtr);
@@ -145,6 +147,7 @@ public class BTransactionService {
             CCharPointer encPathPtr,  // path al archivo .enc
             CCharPointer keyPathPtr   // path a la llave
     ) {
+        System.out.println("*********************** decryptTransactionFile    *************************** ");
         String encPath = CTypeConversion.toJavaString(encPathPtr);
         String keyPath = CTypeConversion.toJavaString(keyPathPtr);
 
@@ -177,40 +180,4 @@ public class BTransactionService {
         }
     }
 
-    public static void main(String[] args) {
-        try {
-            System.out.println("=== START BTransactionService Java Test ===");
-
-            String jsonPath = "C:/work-lab/transaccion_example.json";
-            String keyPath  = "C:/work-lab/keys/aes256.key";
-            String outPath  = "C:/work-lab/out/tx.enc";
-
-            System.out.println("[1] Reading JSON from: " + jsonPath);
-            String json = Files.readString(Paths.get(jsonPath));
-            System.out.println("[2] JSON content:\n" + json);
-
-            BTransaction tx = gson.fromJson(json, BTransaction.class);
-            BResponse response = new BResponse();
-            response.setSecuredTransaction(tx);
-            response.setSystemReport("Transaction loaded successfully from " + jsonPath);
-
-            String payload = gson.toJson(response);
-            System.out.println("[3] Payload to encrypt:\n" + payload);
-
-            // Leer llave y cifrar con CryptoUtils
-            byte[] keyBytes = CryptoUtils.readKeyFlexible(Paths.get(keyPath));
-            SecretKey key = CryptoUtils.buildAesKey(keyBytes);
-            System.out.println("[4] Key length: " + keyBytes.length + " bytes");
-
-            byte[] ciphertext = CryptoUtils.encryptAesGcm(payload.getBytes(StandardCharsets.UTF_8), key);
-
-            Path outFile = Paths.get(outPath);
-            Files.createDirectories(outFile.getParent()); // asegura que la carpeta exista
-            Files.write(outFile, ciphertext);
-
-            System.out.println("[5] Ciphertext written to: " + outPath + " (" + ciphertext.length + " bytes)");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 }

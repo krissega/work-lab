@@ -2,55 +2,96 @@ package com.work.graalvm.utils;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.security.Security;
 import java.util.Arrays;
 import java.util.Base64;
 public class CryptoUtils {
 
-    private static final int GCM_TAG_BITS = 128;   // 16 bytes
-    private static final int GCM_IV_BYTES = 12;    // recomendado para GCM
+    private static final int GCM_TAG_BITS = 128; // 16 bytes
+    private static final int GCM_IV_BYTES = 12;  // recomendado para GCM
 
     static {
-        // Registrar BC si no está ya registrado
         if (Security.getProvider("BC") == null) {
             Security.addProvider(new BouncyCastleProvider());
+        }
+        // Diagnóstico (puedes comentar estas líneas cuando ya confíes):
+        System.out.println("Providers:");
+        for (var p : Security.getProviders()) System.out.println(" - " + p.getName());
+        try {
+            Cipher.getInstance("AES/GCM/NoPadding", "SunJCE");
+            System.out.println("AES/GCM available in SunJCE ");
+        } catch (Exception e) {
+            System.out.println("AES/GCM NOT in SunJCE : " + e);
+        }
+    }
+
+    private static Cipher newAesGcmCipher() throws Exception {
+        try {
+            // Prefer SunJCE: estable en JVM y native-image
+            return Cipher.getInstance("AES/GCM/NoPadding", "SunJCE");
+        } catch (Exception e) {
+            // Fallback opcional a BC (por si en otra plataforma sí está)
+            try {
+                return Cipher.getInstance("AES/GCM/NoPadding", "BC");
+            } catch (Exception ignored) {
+                // Último intento: sin provider explícito (deja que JCE elija)
+                return Cipher.getInstance("AES/GCM/NoPadding");
+            }
         }
     }
 
     public static byte[] encryptAesGcm(byte[] plaintext, SecretKey key) throws Exception {
         byte[] iv = new byte[GCM_IV_BYTES];
-        SecureRandom sr = SecureRandom.getInstanceStrong();
+        // Preferible y suficiente:
+        SecureRandom sr = new SecureRandom();
         sr.nextBytes(iv);
 
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", "BC");
+        Cipher cipher = newAesGcmCipher();
         cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
         byte[] ct = cipher.doFinal(plaintext);
 
-        // Concatenar IV || CT+TAG
+        // IV || CT(+TAG)
         byte[] out = new byte[iv.length + ct.length];
         System.arraycopy(iv, 0, out, 0, iv.length);
         System.arraycopy(ct, 0, out, iv.length, ct.length);
         return out;
     }
 
+    public static String decryptAesGcm(byte[] ciphertext, SecretKey key) throws Exception {
+        if (ciphertext.length < GCM_IV_BYTES + 16) { // IV + tag mínimo
+            throw new IllegalArgumentException("Ciphertext too short");
+        }
+        byte[] iv = Arrays.copyOfRange(ciphertext, 0, GCM_IV_BYTES);
+        byte[] ct = Arrays.copyOfRange(ciphertext, GCM_IV_BYTES, ciphertext.length);
+
+        Cipher cipher = newAesGcmCipher();
+        cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
+        byte[] pt = cipher.doFinal(ct);
+
+        return new String(pt, StandardCharsets.UTF_8);
+    }
+
     public static byte[] readKeyFlexible(Path keyPath) throws Exception {
         byte[] raw = Files.readAllBytes(keyPath);
         String txt = new String(raw, StandardCharsets.UTF_8).trim();
 
-        // Intentar Base64
+        // Base64
         try {
             byte[] b = Base64.getDecoder().decode(txt);
             if (b.length > 0) return b;
         } catch (IllegalArgumentException ignored) {}
 
-        // Intentar Hex
+        // Hex
         if (txt.matches("^[0-9a-fA-F]+$") && (txt.length() % 2 == 0)) {
             int len = txt.length() / 2;
             byte[] out = new byte[len];
@@ -60,23 +101,12 @@ public class CryptoUtils {
             return out;
         }
 
-        // Si no es Base64 ni Hex, devolver como binario crudo
+        // Binario crudo
         return raw;
     }
 
-
-    public static String decryptAesGcm(byte[] ciphertext, SecretKey key) throws Exception {
-        // Separar IV (primeros 12 bytes) y resto (cifrado + tag)
-        byte[] iv = Arrays.copyOfRange(ciphertext, 0, 12);
-        byte[] ct = Arrays.copyOfRange(ciphertext, 12, ciphertext.length);
-
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", "BC");
-        cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
-        byte[] plaintext = cipher.doFinal(ct);
-
-        return new String(plaintext, StandardCharsets.UTF_8);
-    }
     public static SecretKey buildAesKey(byte[] keyBytes) {
         return new SecretKeySpec(keyBytes, "AES");
     }
 }
+
