@@ -7,7 +7,9 @@ import com.work.graalvm.domain.BStatus;
 import com.work.graalvm.domain.BTransaction;
 import com.work.graalvm.utils.CryptoUtils;
 import com.work.graalvm.utils.LocalDateAdapterUtils;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
+import org.bouncycastle.crypto.CryptoServicesRegistrar;
+import org.bouncycastle.crypto.fips.FipsStatus;
 import org.graalvm.nativeimage.IsolateThread;
 import org.graalvm.nativeimage.c.function.CEntryPoint;
 import org.graalvm.nativeimage.c.type.CCharPointer;
@@ -17,17 +19,20 @@ import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.Security;
 import java.time.LocalDate;
 
 
 public class BTransactionService {
+    //  Bootstrap FIPS
     static {
-        // Registrar BC de forma explícita (útil en native-image)
-        if (Security.getProvider("BC") == null) {
-            Security.addProvider(new BouncyCastleProvider());
+        Security.insertProviderAt(new BouncyCastleFipsProvider(), 1);
+        try {
+            CryptoServicesRegistrar.setApprovedOnlyMode(true);
+        } catch (Throwable ignored) { }
+        if (!FipsStatus.isReady()) {
+            throw new IllegalStateException("BCFIPS is not ready for FIPS mode approved.");
         }
     }
     private static final Gson gson = new GsonBuilder()

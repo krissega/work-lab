@@ -9,46 +9,47 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.SecureRandom;
-import java.security.Security;
+import java.security.*;
 import java.util.Arrays;
 import java.util.Base64;
 public class CryptoUtils {
 
     private static final int GCM_TAG_BITS = 128; // 16 bytes
     private static final int GCM_IV_BYTES = 12;  // recomendado para GCM
+    // Nombre del provider FIPS
+    private static final String FIPS_PROVIDER = "BCFIPS";
 
-    static {
-        if (Security.getProvider("BC") == null) {
-            Security.addProvider(new BouncyCastleProvider());
-        }
-        // Diagnóstico (puedes comentar estas líneas cuando ya confíes):
-        System.out.println("Providers:");
-        for (var p : Security.getProviders()) System.out.println(" - " + p.getName());
-        try {
-            Cipher.getInstance("AES/GCM/NoPadding", "SunJCE");
-            System.out.println("AES/GCM available in SunJCE ");
-        } catch (Exception e) {
-            System.out.println("AES/GCM NOT in SunJCE : " + e);
-        }
-    }
-
+    /** Crea un Cipher AES/GCM/NoPadding sobre el provider FIPS. */
     private static Cipher newAesGcmCipher() throws Exception {
-        try {
-            // Prefer SunJCE: estable en JVM y native-image
-            return Cipher.getInstance("AES/GCM/NoPadding", "SunJCE");
-        } catch (Exception e) {
-            // Fallback opcional a BC (por si en otra plataforma sí está)
-            try {
-                return Cipher.getInstance("AES/GCM/NoPadding", "BC");
-            } catch (Exception ignored) {
-                // Último intento: sin provider explícito (deja que JCE elija)
-                return Cipher.getInstance("AES/GCM/NoPadding");
-            }
+        //  Listar providers cargados
+
+        // Diagnóstico
+        System.out.println("== Providers disponibles ==");
+        for (Provider p : Security.getProviders()) {
+            System.out.println(" - " + p.getName() + " : " + p.getInfo());
         }
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", FIPS_PROVIDER);
+        System.out.println("✅ Cipher creado con provider: " + cipher.getProvider().getName());
+        return cipher;
     }
+
+    // comentado por el tema de fips para probar
+
+//    private static Cipher newAesGcmCipher() throws Exception {
+//        try {
+//            // Prefer SunJCE: estable en JVM y native-image
+//            return Cipher.getInstance("AES/GCM/NoPadding", "SunJCE");
+//        } catch (Exception e) {
+//            // Fallback opcional a BC (por si en otra plataforma sí está)
+//            try {
+//                return Cipher.getInstance("AES/GCM/NoPadding", "BC");
+//            } catch (Exception ignored) {
+//                // Último intento: sin provider explícito (deja que JCE elija)
+//                return Cipher.getInstance("AES/GCM/NoPadding");
+//            }
+//        }
+//    }
 
     public static byte[] encryptAesGcm(byte[] plaintext, SecretKey key) throws Exception {
         byte[] iv = new byte[GCM_IV_BYTES];
