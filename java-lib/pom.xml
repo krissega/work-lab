@@ -5,21 +5,24 @@
 
   <groupId>com.work.graalvm</groupId>
   <artifactId>graalvm-library</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>0.0.1-SNAPSHOT</version>
 
   <properties>
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
     <graalvm.version>23.1.2</graalvm.version>
     <gson.version>2.10.1</gson.version>
-    <bouncycastle.version>1.78.1</bouncycastle.version>
-    <bouncycastle-fips-version>2.0.0</bouncycastle-fips-version>
-    <junit.jupiter.version>5.10.2</junit.jupiter.version>
 
+    <!-- Usa SOLO FIPS -->
+    <bouncycastle-fips-version>2.0.0</bouncycastle-fips-version>
+
+    <junit.jupiter.version>5.10.2</junit.jupiter.version>
   </properties>
 
   <dependencies>
+    <!-- GraalVM SDK (solo compile-time) -->
     <dependency>
       <groupId>org.graalvm.sdk</groupId>
       <artifactId>graal-sdk</artifactId>
@@ -33,57 +36,96 @@
       <version>${gson.version}</version>
     </dependency>
 
+    <!-- Bouncy Castle FIPS -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bc-fips</artifactId>
-      <version>${bouncycastle-fips-version}</version> <!-- o 2.1.0 si es la que vas a usar -->
+      <version>${bouncycastle-fips-version}</version>
     </dependency>
 
-    <!--<dependency>
-     <groupId>org.bouncycastle</groupId>
-     <artifactId>bcprov-jdk18on</artifactId>
-     <version>${bouncycastle.version}</version>
-   </dependency> -->
+    <!-- Tests -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 
-   <dependency>
-     <groupId>org.junit.jupiter</groupId>
-     <artifactId>junit-jupiter</artifactId>
-     <version>${junit.jupiter.version}</version>
-   </dependency>
-
- </dependencies>
-
- <build>
-   <plugins>
-     <plugin>
-       <groupId>org.graalvm.buildtools</groupId>
-       <artifactId>native-maven-plugin</artifactId>
-       <version>0.10.2</version>
-       <executions>
-         <execution>
-           <id>build-native</id>
-           <goals>
-             <goal>compile-no-fork</goal>
-           </goals>
-         </execution>
-       </executions>
-       <configuration>
-         <imageName>BTransactionService</imageName>
-         <buildArgs>
-           <arg>--shared</arg> <!-- librería compartida -->
-            <!-- habilita todos los servicios de seguridad/JCE en la imagen -->
-            <arg>--enable-all-security-services</arg>
-            <!-- (opcional) si lo necesitas con BC -->
-            <arg>--initialize-at-run-time=org.bouncycastle</arg>
-          </buildArgs>
-        </configuration>
-      </plugin>
-
+  <build>
+    <plugins>
+      <!--For FIPS static config in all clasess-->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.1.2</version>
+        <configuration>
+          <useModulePath>false</useModulePath>
+          <argLine>
+            -Djava.security.properties=${project.basedir}/src/main/resources/conf/java.security.fips
+            -Dorg.bouncycastle.fips.approved_only=true
+          </argLine>
+        </configuration>
       </plugin>
+
+      <!-- (Opcional pero recomendado) Empaquetar todo en un único fat-jar -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.5.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <finalName>${project.artifactId}-${project.version}-uber</finalName>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- GraalVM Native Image -->
+      <plugin>
+        <groupId>org.graalvm.buildtools</groupId>
+        <artifactId>native-maven-plugin</artifactId>
+        <version>0.10.2</version>
+        <executions>
+          <execution>
+            <id>build-native</id>
+            <goals>
+              <goal>compile-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <imageName>BTransactionService</imageName>
+          <!--  Que use el classpath de runtime (no uber-jar) -->
+          <classpathScope>runtime</classpathScope>
+          <buildArgs>
+            <arg>--shared</arg>
+            <arg>--no-fallback</arg>
+
+            <!-- Mantén “paquetes” que tocan SecureRandom en runtime -->
+            <arg>--initialize-at-run-time=java.security.SecureRandom,javax.crypto,javax.net.ssl,sun.security.ssl,org.bouncycastle</arg>
+
+            <!-- Fuerza clases JCE/JCA problemáticas a init en runtime (evita verificador de firmas en build) -->
+            <arg>-H:ClassInitialization=javax.crypto.JceSecurity:run_time,javax.crypto.Cipher:run_time,javax.crypto.KeyGenerator:run_time</arg>
+            <arg>-H:ClassInitialization=sun.security.jca.ProviderConfig:run_time,sun.security.jca.ProviderList:run_time,sun.security.jca.Providers:run_time</arg>
+
+            <!-- Tu provider BCFIPS y modo approved-only (SE CONGELAN en el binario) -->
+            <arg>-J-Djava.security.properties=${project.basedir}/src/main/resources/conf/java.security.fips</arg>
+            <arg>-J-Dorg.bouncycastle.fips.approved_only=true</arg>
+
+            <!-- Configs generadas por el agent (reflect/resources/services) -->
+            <arg>-H:ConfigurationFileDirectories=graal-config</arg>
+
+            <!-- Debug útil si algo más protesta -->
+            <arg>-H:+ReportExceptionStackTraces</arg>
+          </buildArgs>
+        </configuration>
+      </plugin>
+
     </plugins>
   </build>
 </project>

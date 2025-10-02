@@ -1,13 +1,15 @@
 package com.work.graalvm.utils;
+import com.work.graalvm.FipsTestBootstrap;
 import org.junit.jupiter.api.Test;
-
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.*;
-class CryptoUtilsTest {
+
+class CryptoUtilsTest extends FipsTestBootstrap {
+
+
     @Test
     void testEncryptDecryptAesGcm() throws Exception {
         // Mensaje de prueba

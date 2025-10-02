@@ -1,0 +1,4 @@
+security.provider.1=org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider
+security.provider.2=SUN
+security.provider.3=SunRsaSign
+...

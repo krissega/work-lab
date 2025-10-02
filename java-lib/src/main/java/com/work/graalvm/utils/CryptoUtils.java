@@ -1,8 +1,7 @@
 package com.work.graalvm.utils;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-
+import com.work.graalvm.conf.FipsConfig;
+import org.bouncycastle.crypto.CryptoServicesRegistrar;
 import javax.crypto.Cipher;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -12,66 +11,59 @@ import java.nio.file.Path;
 import java.security.*;
 import java.util.Arrays;
 import java.util.Base64;
-public class CryptoUtils {
+/**
+ * Utilidades AES-GCM sobre provider FIPS ("BCFIPS").
+ * - IV de 12 bytes (recomendado NIST para GCM).
+ * - Tag de 128 bits (16 bytes).
+ * - RNG FIPS obtenido de CryptoServicesRegistrar (DRBG aprobado).
+ * - Sin fallback a proveedores no-FIPS.
+ */
+public final class CryptoUtils {
+    private CryptoUtils() {}
 
-    private static final int GCM_TAG_BITS = 128; // 16 bytes
-    private static final int GCM_IV_BYTES = 12;  // recomendado para GCM
-    // Nombre del provider FIPS
     private static final String FIPS_PROVIDER = "BCFIPS";
+    private static final int GCM_TAG_BITS   = 128; // 16 bytes
+    private static final int GCM_IV_BYTES   = 12;  // recomendado NIST
 
     /** Crea un Cipher AES/GCM/NoPadding sobre el provider FIPS. */
     private static Cipher newAesGcmCipher() throws Exception {
-        //  Listar providers cargados
-
-        // Diagnóstico
-        System.out.println("== Providers disponibles ==");
-        for (Provider p : Security.getProviders()) {
-            System.out.println(" - " + p.getName() + " : " + p.getInfo());
-        }
-
-        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding", FIPS_PROVIDER);
-        System.out.println("✅ Cipher creado con provider: " + cipher.getProvider().getName());
-        return cipher;
+        return Cipher.getInstance("AES/GCM/NoPadding", FIPS_PROVIDER);
     }
 
-    // comentado por el tema de fips para probar
+    /** Devuelve un RNG FIPS (DRBG) del provider BCFIPS. */
+    private static SecureRandom fipsRng() {
+        // Ya quedó fijado por FipsConfig.init() vía setSecureRandomProvider()
+        return CryptoServicesRegistrar.getSecureRandom();
+    }
 
-//    private static Cipher newAesGcmCipher() throws Exception {
-//        try {
-//            // Prefer SunJCE: estable en JVM y native-image
-//            return Cipher.getInstance("AES/GCM/NoPadding", "SunJCE");
-//        } catch (Exception e) {
-//            // Fallback opcional a BC (por si en otra plataforma sí está)
-//            try {
-//                return Cipher.getInstance("AES/GCM/NoPadding", "BC");
-//            } catch (Exception ignored) {
-//                // Último intento: sin provider explícito (deja que JCE elija)
-//                return Cipher.getInstance("AES/GCM/NoPadding");
-//            }
-//        }
-//    }
-
+    /** Cifra: devuelve IV||CT(+TAG). */
     public static byte[] encryptAesGcm(byte[] plaintext, SecretKey key) throws Exception {
+        if (plaintext == null) throw new IllegalArgumentException("plaintext == null");
+        if (key == null)       throw new IllegalArgumentException("key == null");
+
         byte[] iv = new byte[GCM_IV_BYTES];
-        // Preferible y suficiente:
-        SecureRandom sr = new SecureRandom();
-        sr.nextBytes(iv);
+        fipsRng().nextBytes(iv);
 
         Cipher cipher = newAesGcmCipher();
         cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
         byte[] ct = cipher.doFinal(plaintext);
 
-        // IV || CT(+TAG)
         byte[] out = new byte[iv.length + ct.length];
         System.arraycopy(iv, 0, out, 0, iv.length);
         System.arraycopy(ct, 0, out, iv.length, ct.length);
+        // (Opcional) zeroizar buffers sensibles temporales
+        Arrays.fill(iv, (byte)0);
         return out;
     }
 
+    /** Descifra un blob IV||CT(+TAG) y retorna el plaintext como String UTF-8. */
     public static String decryptAesGcm(byte[] ciphertext, SecretKey key) throws Exception {
-        if (ciphertext.length < GCM_IV_BYTES + 16) { // IV + tag mínimo
-            throw new IllegalArgumentException("Ciphertext too short");
+        if (ciphertext == null) throw new IllegalArgumentException("ciphertext == null");
+        if (key == null)        throw new IllegalArgumentException("key == null");
+        if (ciphertext.length < GCM_IV_BYTES + 16) {
+            throw new IllegalArgumentException("Ciphertext too short (no IV/TAG)");
         }
+
         byte[] iv = Arrays.copyOfRange(ciphertext, 0, GCM_IV_BYTES);
         byte[] ct = Arrays.copyOfRange(ciphertext, GCM_IV_BYTES, ciphertext.length);
 
@@ -79,9 +71,13 @@ public class CryptoUtils {
         cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
         byte[] pt = cipher.doFinal(ct);
 
+        // (Opcional) zeroizar buffers sensibles temporales
+        Arrays.fill(iv, (byte)0);
+
         return new String(pt, StandardCharsets.UTF_8);
     }
 
+    /** Lee una llave simétrica desde archivo (Base64 / Hex / binario). */
     public static byte[] readKeyFlexible(Path keyPath) throws Exception {
         byte[] raw = Files.readAllBytes(keyPath);
         String txt = new String(raw, StandardCharsets.UTF_8).trim();
@@ -106,8 +102,13 @@ public class CryptoUtils {
         return raw;
     }
 
+    /** Construye una SecretKey AES desde bytes. (Tamaño válido: 16/24/32). */
     public static SecretKey buildAesKey(byte[] keyBytes) {
+        if (keyBytes == null) throw new IllegalArgumentException("keyBytes == null");
+        int n = keyBytes.length;
+        if (n != 16 && n != 24 && n != 32) {
+            throw new IllegalArgumentException("AES key length must be 16/24/32 bytes, got: " + n);
+        }
         return new SecretKeySpec(keyBytes, "AES");
     }
 }
-

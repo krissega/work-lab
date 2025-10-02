@@ -1,5 +1,7 @@
 package com.work.graalvm.service;
 
+import com.work.graalvm.FipsTestBootstrap;
+import com.work.graalvm.conf.FipsConfig;
 import com.work.graalvm.domain.BTransaction;
 import com.work.graalvm.domain.BResponse;
 import com.work.graalvm.utils.CryptoUtils;
@@ -17,8 +19,10 @@ import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class BTransactionServiceTest {
-
+public class BTransactionServiceTest extends FipsTestBootstrap {
+    static {
+        FipsConfig.init();
+    }
     private static final Gson gson = new GsonBuilder()
             .setPrettyPrinting()
             .registerTypeAdapter(LocalDate.class, new LocalDateAdapterUtils())
