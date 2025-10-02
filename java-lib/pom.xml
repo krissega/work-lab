@@ -100,28 +100,26 @@
         </executions>
         <configuration>
           <imageName>BTransactionService</imageName>
-          <!--  Que use el classpath de runtime (no uber-jar) -->
           <classpathScope>runtime</classpathScope>
           <buildArgs>
             <arg>--shared</arg>
             <arg>--no-fallback</arg>
-
-            <!-- Mantén “paquetes” que tocan SecureRandom en runtime -->
+            <!-- Inicializa en runtime lo sensible a SecureRandom/TLS/BC -->
             <arg>--initialize-at-run-time=java.security.SecureRandom,javax.crypto,javax.net.ssl,sun.security.ssl,org.bouncycastle</arg>
-
-            <!-- Fuerza clases JCE/JCA problemáticas a init en runtime (evita verificador de firmas en build) -->
-            <arg>-H:ClassInitialization=javax.crypto.JceSecurity:run_time,javax.crypto.Cipher:run_time,javax.crypto.KeyGenerator:run_time</arg>
-            <arg>-H:ClassInitialization=sun.security.jca.ProviderConfig:run_time,sun.security.jca.ProviderList:run_time,sun.security.jca.Providers:run_time</arg>
-
-            <!-- Tu provider BCFIPS y modo approved-only (SE CONGELAN en el binario) -->
+            <!-- Mínimo de JCE a runtime para evitar verificador en build -->
+            <arg>-H:ClassInitialization=javax.crypto.JceSecurity:run_time,javax.crypto.Cipher:run_time</arg>
+            <!-- Tus clases con bootstrap FIPS a runtime (evita ejecutar init en el build) -->
+            <arg>--initialize-at-run-time=com.work.graalvm.conf.FipsConfig,com.work.graalvm.service.BTransactionService,com.work.graalvm.utils.CryptoUtils</arg>
+            <!-- FIPS: provider y modo -->
             <arg>-J-Djava.security.properties=${project.basedir}/src/main/resources/conf/java.security.fips</arg>
             <arg>-J-Dorg.bouncycastle.fips.approved_only=true</arg>
-
-            <!-- Configs generadas por el agent (reflect/resources/services) -->
+            <!-- Configs del agent (reflect/resources/services) -->
             <arg>-H:ConfigurationFileDirectories=graal-config</arg>
 
-            <!-- Debug útil si algo más protesta -->
+            <!-- Debug útil -->
             <arg>-H:+ReportExceptionStackTraces</arg>
+            <!-- Si vuelve a quejarse alguna clase:
+          <arg>  trace-class-initialization=javax.crypto.JceSecurity,javax.crypto.Cipher</arg> -->
           </buildArgs>
         </configuration>
       </plugin>
