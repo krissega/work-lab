@@ -104,22 +104,21 @@
           <buildArgs>
             <arg>--shared</arg>
             <arg>--no-fallback</arg>
-            <!-- Inicializa en runtime lo sensible a SecureRandom/TLS/BC -->
-            <arg>--initialize-at-run-time=java.security.SecureRandom,javax.crypto,javax.net.ssl,sun.security.ssl,org.bouncycastle</arg>
-            <!-- Mínimo de JCE a runtime para evitar verificador en build -->
-            <arg>-H:ClassInitialization=javax.crypto.JceSecurity:run_time,javax.crypto.Cipher:run_time</arg>
-            <!-- Tus clases con bootstrap FIPS a runtime (evita ejecutar init en el build) -->
-            <arg>--initialize-at-run-time=com.work.graalvm.conf.FipsConfig,com.work.graalvm.service.BTransactionService,com.work.graalvm.utils.CryptoUtils</arg>
-            <!-- FIPS: provider y modo -->
+
+            <!-- JCE/TLS/BC + tus clases bootstrap a runtime -->
+            <arg>--initialize-at-run-time=java.security.SecureRandom,javax.crypto,javax.net.ssl,sun.security.ssl,org.bouncycastle,com.work.graalvm.conf.FipsConfig,com.work.graalvm.service.BTransactionService,com.work.graalvm.utils.CryptoUtils,javax.crypto.JceSecurity,javax.crypto.Cipher</arg>
+
+            <!-- FIPS -->
             <arg>-J-Djava.security.properties=${project.basedir}/src/main/resources/conf/java.security.fips</arg>
             <arg>-J-Dorg.bouncycastle.fips.approved_only=true</arg>
-            <!-- Configs del agent (reflect/resources/services) -->
+
+            <!-- Configs del agent -->
             <arg>-H:ConfigurationFileDirectories=graal-config</arg>
 
-            <!-- Debug útil -->
+            <!-- Diagnóstico -->
             <arg>-H:+ReportExceptionStackTraces</arg>
-            <!-- Si vuelve a quejarse alguna clase:
-          <arg>  trace-class-initialization=javax.crypto.JceSecurity,javax.crypto.Cipher</arg> -->
+            <!-- Para diagnosticar si insiste:
+            <arg>--trace-class-initialization=javax.crypto.JceSecurity,javax.crypto.Cipher</arg> -->
           </buildArgs>
         </configuration>
       </plugin>

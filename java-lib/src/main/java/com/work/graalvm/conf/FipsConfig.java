@@ -4,6 +4,7 @@ import org.bouncycastle.crypto.CryptoServicesRegistrar;
 import org.bouncycastle.crypto.fips.FipsStatus;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 
+import java.security.Provider;
 import java.security.SecureRandom;
 import java.security.Security;
 
@@ -27,14 +28,21 @@ public final class FipsConfig {
         synchronized (FipsConfig.class) {
             if (initialized) return;
 
-            // 1) Provider FIPS como #1
-            Security.insertProviderAt(new BouncyCastleFipsProvider(), 1);
+            // 1) Provider FIPS como #1 (idempotente)
+            if (Security.getProvider("BCFIPS") == null) {
+                Security.insertProviderAt(new BouncyCastleFipsProvider(), 1);
+            } else {
+                Provider[] ps = Security.getProviders();
+                if (ps.length == 0 || !"BCFIPS".equals(ps[0].getName())) {
+                    Security.removeProvider("BCFIPS");
+                    Security.insertProviderAt(new BouncyCastleFipsProvider(), 1);
+                }
+            }
 
-            // 2) Approved-only (según versión del JAR: setApprovedOnlyMode o setApprovedMode)
+            // 2) Approved-only (según versión del JAR)
             enableApprovedOnlyMode();
 
-            // 3) SecureRandom aprobado (DRBG del provider BCFIPS)
-            //    IMPORTANTE: usar setSecureRandom(instancia) para evitar recursión
+            // 3) SecureRandom aprobado (evita recursión)
             try {
                 SecureRandom fipsRng = SecureRandom.getInstance("DEFAULT", "BCFIPS");
                 CryptoServicesRegistrar.setSecureRandom(fipsRng);
@@ -47,14 +55,15 @@ public final class FipsConfig {
                 throw new IllegalStateException("BCFIPS NO está listo (FipsStatus.isReady()==false).");
             }
 
+            initialized = true; // ← marcamos listo antes de log
+
             // (Opcional) Evidencia mínima
+            Provider[] provs = Security.getProviders();
             System.out.println("== FIPS bootstrap ==");
-            System.out.println("Provider[1]: " + Security.getProviders()[0]);
+            System.out.println("Provider[1]: " + (provs.length > 0 ? provs[0] : "<none>"));
             System.out.println("Approved-only mode: " + isApprovedOnly());
             System.out.println("FipsStatus READY: " + FipsStatus.isReady());
             System.out.println("==================================");
-
-            initialized = true;
         }
     }
 
